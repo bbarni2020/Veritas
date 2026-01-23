@@ -52,19 +52,39 @@ def admin_login(request: Request):
     return templates.TemplateResponse('login.html', {'request': request})
 
 @app.post('/admin/login')
-def admin_auth(password: str = Form(...)):
+async def admin_auth(request: Request):
     admin_pass = os.getenv('ADMIN_PASSWORD', 'adminpass')
+    content_type = request.headers.get('content-type', '')
+    if 'application/json' in content_type:
+        body = await request.json()
+        password = body.get('password')
+    else:
+        form = await request.form()
+        password = form.get('password')
     if password == admin_pass:
         token = create_access_token({'role': 'admin'})
         return {'token': token}
     raise HTTPException(status_code=401, detail='Invalid password')
 
 @app.get('/admin/dashboard')
-def admin_dashboard(request: Request, db: Session = Depends(get_db), admin=Depends(admin_required)):
+def admin_dashboard(request: Request):
+    return templates.TemplateResponse('dashboard.html', {'request': request})
+
+@app.get('/api/admin/stats')
+def api_admin_stats(db: Session = Depends(get_db), admin=Depends(admin_required)):
+    users = db.query(models.User).count()
+    posts = db.query(models.Post).count()
+    return {'users': users, 'posts': posts}
+
+@app.get('/api/admin/users')
+def api_admin_users(db: Session = Depends(get_db), admin=Depends(admin_required)):
     users = db.query(models.User).all()
+    return [{'id': u.id, 'username': u.username, 'country': u.country} for u in users]
+
+@app.get('/api/admin/posts')
+def api_admin_posts(db: Session = Depends(get_db), admin=Depends(admin_required)):
     posts = db.query(models.Post).all()
-    stats = {'users': len(users), 'posts': len(posts)}
-    return templates.TemplateResponse('dashboard.html', {'request': request, 'users': users, 'posts': posts, 'stats': stats})
+    return [{'id': p.id, 'owner': p.owner.username if p.owner else None, 'video_url': p.video_url, 'caption': p.caption} for p in posts]
 
 @app.get('/admin/users')
 def admin_users(request: Request, db: Session = Depends(get_db), admin=Depends(admin_required)):
