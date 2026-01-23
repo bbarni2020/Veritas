@@ -30,7 +30,12 @@
             <tr>
                 <td>{{ post.id }}</td>
                 <td>{{ post.owner.username }}</td>
-                <td><a href="{{ post.video_url }}" target="_blank">View</a></td>
+                <td>
+                  <a href="{{ post.video_url }}" target="_blank">Original</a>
+                  {% if post.mp4_url %} | <a href="{{ post.mp4_url }}" target="_blank">MP4</a>{% endif %}
+                  {% if post.webm_url %} | <a href="{{ post.webm_url }}" target="_blank">WebM</a>{% endif %}
+                  {% if post.hls_url %} | <a href="{{ post.hls_url }}" target="_blank">HLS</a>{% endif %}
+                </td>
                 <td>{{ post.caption or 'N/A' }}</td>
             </tr>
             {% endfor %}
