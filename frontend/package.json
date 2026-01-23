@@ -1,0 +1,25 @@
+{
+  "name": "veritas-app",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  },
+  "dependencies": {
+    "@react-navigation/bottom-tabs": "~6.5.0",
+    "@react-navigation/native": "~6.1.0",
+    "axios": "^1.13.2",
+    "expo": "^54.0.32",
+    "expo-vector-icons": "^10.0.1",
+    "expo-video": "~3.0.15",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-reanimated": "~4.1.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-web": "^0.21.0"
+  }
+}
