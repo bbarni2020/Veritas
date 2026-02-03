@@ -8,6 +8,7 @@ class User(Base):
     username = Column(String(128), unique=True, index=True, nullable=False)
     password_hash = Column(String(256), nullable=False)
     country = Column(String(128), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     posts = relationship('Post', back_populates='owner')
 
 class Post(Base):
@@ -15,7 +16,11 @@ class Post(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     video_url = Column(String(1024), nullable=False)
+    mp4_url = Column(String(1024), nullable=True)
+    webm_url = Column(String(1024), nullable=True)
+    hls_url = Column(String(1024), nullable=True)
     caption = Column(Text, nullable=True)
+    processing_status = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     owner = relationship('User', back_populates='posts')
 
@@ -24,6 +29,7 @@ class Like(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     post_id = Column(Integer, ForeignKey('posts.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Comment(Base):
     __tablename__ = 'comments'
@@ -31,9 +37,19 @@ class Comment(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     post_id = Column(Integer, ForeignKey('posts.id'), nullable=False)
     text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Repost(Base):
     __tablename__ = 'reposts'
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     post_id = Column(Integer, ForeignKey('posts.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Message(Base):
+    __tablename__ = 'messages'
+    id = Column(Integer, primary_key=True)
+    sender_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    recipient_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -13,7 +13,7 @@ def create_user(db: Session, username: str, password: str, country: str = None):
     return user
 
 def create_post(db: Session, owner_id: int, video_url: str, caption: str = None):
-    post = models.Post(owner_id=owner_id, video_url=video_url, caption=caption)
+    post = models.Post(owner_id=owner_id, video_url=video_url, caption=caption, processing_status='uploaded')
     db.add(post)
     db.commit()
     db.refresh(post)
@@ -46,3 +46,25 @@ def add_repost(db: Session, user_id: int, post_id: int):
     db.commit()
     db.refresh(repost)
     return repost
+
+from .crypto import encrypt
+
+def add_message(db: Session, sender_id: int, recipient_id: int, text: str):
+    enc = encrypt(text)
+    msg = models.Message(sender_id=sender_id, recipient_id=recipient_id, text=enc)
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+def get_messages(db: Session, limit: int = 100):
+    return db.query(models.Message).order_by(models.Message.created_at.desc()).limit(limit).all()
+
+def get_comments(db: Session, limit: int = 100):
+    return db.query(models.Comment).order_by(models.Comment.id.desc()).limit(limit).all()
+
+def get_likes(db: Session, limit: int = 100):
+    return db.query(models.Like).order_by(models.Like.id.desc()).limit(limit).all()
+
+def get_reposts(db: Session, limit: int = 100):
+    return db.query(models.Repost).order_by(models.Repost.id.desc()).limit(limit).all()
