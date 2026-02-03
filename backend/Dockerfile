@@ -7,4 +7,8 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 RUN apt-get purge -y gcc g++ && apt-get autoremove -y
 COPY ./app /app/app
 COPY ./templates /app/templates
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+COPY ./alembic.ini /app/alembic.ini
+COPY ./migrations /app/migrations
+COPY ./entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+CMD ["/app/entrypoint.sh"]

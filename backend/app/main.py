@@ -29,39 +29,21 @@ from sqlalchemy import text
 
 @app.on_event('startup')
 def startup_checks():
-    with engine.connect() as conn:
-        def column_exists(table, column):
-            r = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name=:table AND column_name=:column"), {"table": table, "column": column})
-            return r.first() is not None
-        if not column_exists('posts', 'mp4_url'):
-            conn.execute(text("ALTER TABLE posts ADD COLUMN mp4_url VARCHAR(1024)"))
-        if not column_exists('posts', 'webm_url'):
-            conn.execute(text("ALTER TABLE posts ADD COLUMN webm_url VARCHAR(1024)"))
-        if not column_exists('posts', 'hls_url'):
-            conn.execute(text("ALTER TABLE posts ADD COLUMN hls_url VARCHAR(1024)"))
-        if not column_exists('posts', 'processing_status'):
-            conn.execute(text("ALTER TABLE posts ADD COLUMN processing_status VARCHAR(50)"))
-        if not column_exists('users', 'created_at'):
-            conn.execute(text("ALTER TABLE users ADD COLUMN created_at TIMESTAMPTZ DEFAULT now()"))
-        if not column_exists('likes', 'created_at'):
-            conn.execute(text("ALTER TABLE likes ADD COLUMN created_at TIMESTAMPTZ DEFAULT now()"))
-        if not column_exists('comments', 'created_at'):
-            conn.execute(text("ALTER TABLE comments ADD COLUMN created_at TIMESTAMPTZ DEFAULT now()"))
-        if not column_exists('reposts', 'created_at'):
-            conn.execute(text("ALTER TABLE reposts ADD COLUMN created_at TIMESTAMPTZ DEFAULT now()"))
-        if not column_exists('messages', 'created_at'):
-            conn.execute(text("ALTER TABLE messages ADD COLUMN created_at TIMESTAMPTZ DEFAULT now()"))
+    # Create default admin user if not exists
     db = SessionLocal()
     try:
         admin_pass = os.getenv('ADMIN_PASSWORD', 'adminpass')
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@local')
         from .auth import get_password_hash
         user1 = db.query(models.User).filter(models.User.id == 1).first()
         if user1:
             user1.username = 'admin'
             user1.password_hash = get_password_hash(admin_pass)
+            if not user1.email:
+                user1.email = admin_email
             db.commit()
         else:
-            u = models.User(id=1, username='admin', password_hash=get_password_hash(admin_pass), country=None)
+            u = models.User(id=1, username='admin', email=admin_email, password_hash=get_password_hash(admin_pass), country=None)
             db.add(u)
             db.commit()
     except Exception as e:
@@ -123,17 +105,46 @@ def admin_dashboard(request: Request):
 def api_admin_stats(db: Session = Depends(get_db), admin=Depends(admin_required)):
     users = db.query(models.User).count()
     posts = db.query(models.Post).count()
-    return {'users': users, 'posts': posts}
+    likes = db.query(models.Like).count()
+    comments = db.query(models.Comment).count()
+    reposts = db.query(models.Repost).count()
+    follows = db.query(models.Follow).count()
+    return {
+        'users': users, 
+        'posts': posts,
+        'likes': likes,
+        'comments': comments,
+        'reposts': reposts,
+        'follows': follows
+    }
 
 @app.get('/api/admin/users')
 def api_admin_users(db: Session = Depends(get_db), admin=Depends(admin_required)):
     users = db.query(models.User).all()
-    return [{'id': u.id, 'username': u.username, 'country': u.country} for u in users]
+    return [{
+        'id': u.id, 
+        'username': u.username, 
+        'email': u.email,
+        'country': u.country,
+        'profile_picture': u.profile_picture,
+        'user_keywords': u.user_keywords,
+        'created_at': u.created_at.isoformat() if u.created_at else None
+    } for u in users]
 
 @app.get('/api/admin/posts')
 def api_admin_posts(db: Session = Depends(get_db), admin=Depends(admin_required)):
     posts = db.query(models.Post).all()
-    return [{'id': p.id, 'owner': p.owner.username if p.owner else None, 'video_url': p.video_url, 'caption': p.caption} for p in posts]
+    return [{
+        'id': p.id, 
+        'owner_id': p.owner_id,
+        'owner': p.owner.username if p.owner else None, 
+        'video_url': p.video_url, 
+        'caption': p.caption,
+        'description': p.description,
+        'keywords': p.keywords,
+        'processing_status': p.processing_status,
+        'created_at': p.created_at.isoformat() if p.created_at else None
+    } for p in posts]
 
 @app.post('/api/admin/upload-post')
 def api_admin_upload_post(file: UploadFile = File(...), caption: str = Form(None), db: Session = Depends(get_db), admin=Depends(admin_required)):
@@ -155,20 +166,46 @@ def api_admin_upload_post(file: UploadFile = File(...), caption: str = Form(None
 
 @app.get('/api/admin/comments')
 def api_admin_comments(db: Session = Depends(get_db), admin=Depends(admin_required)):
-    items = crud.get_comments(db)
-    return [{'id': c.id, 'user_id': c.user_id, 'post_id': c.post_id, 'text': c.text} for c in items]
+    items = db.query(models.Comment).all()
+    return [{
+        'id': c.id, 
+        'user_id': c.user_id, 
+        'post_id': c.post_id, 
+        'content': c.content,
+        'created_at': c.created_at.isoformat() if c.created_at else None
+    } for c in items]
 
 @app.get('/api/admin/likes')
 def api_admin_likes(db: Session = Depends(get_db), admin=Depends(admin_required)):
-    items = crud.get_likes(db)
-    return [{'id': l.id, 'user_id': l.user_id, 'post_id': l.post_id} for l in items]
+    items = db.query(models.Like).all()
+    return [{
+        'id': l.id, 
+        'user_id': l.user_id, 
+        'post_id': l.post_id,
+        'created_at': l.created_at.isoformat() if l.created_at else None
+    } for l in items]
 
 @app.get('/api/admin/reposts')
 def api_admin_reposts(db: Session = Depends(get_db), admin=Depends(admin_required)):
-    items = crud.get_reposts(db)
-    return [{'id': r.id, 'user_id': r.user_id, 'post_id': r.post_id} for r in items]
+    items = db.query(models.Repost).all()
+    return [{
+        'id': r.id, 
+        'user_id': r.user_id, 
+        'post_id': r.post_id,
+        'created_at': r.created_at.isoformat() if r.created_at else None
+    } for r in items]
 
 from .crypto import decrypt
+
+@app.get('/api/admin/follows')
+def api_admin_follows(db: Session = Depends(get_db), admin=Depends(admin_required)):
+    items = db.query(models.Follow).all()
+    return [{
+        'id': f.id, 
+        'follower_id': f.follower_id, 
+        'following_id': f.following_id,
+        'created_at': f.created_at.isoformat() if f.created_at else None
+    } for f in items]
 
 @app.get('/api/admin/messages')
 def api_admin_messages(db: Session = Depends(get_db), admin=Depends(admin_required)):
@@ -199,7 +236,8 @@ def register(u: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = crud.get_user_by_username(db, u.username)
     if existing:
         raise HTTPException(status_code=400, detail='username_exists')
-    user = crud.create_user(db, u.username, u.password, u.country)
+    email = u.email or f"{u.username}@local"
+    user = crud.create_user(db, u.username, u.password, u.country, email)
     return user
 
 @app.post('/auth/login')
@@ -209,6 +247,62 @@ def login(credentials: schemas.LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail='invalid_credentials')
     token = create_access_token({'sub': str(user.id)})
     return {'access_token': token, 'token_type': 'bearer'}
+
+@app.get('/me', response_model=schemas.UserOut)
+def me(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+@app.patch('/me', response_model=schemas.UserOut)
+def update_me(payload: schemas.UserUpdate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if payload.username and payload.username != current_user.username:
+        existing = crud.get_user_by_username(db, payload.username)
+        if existing:
+            raise HTTPException(status_code=400, detail='username_exists')
+    return crud.update_user(db, current_user, payload.username, payload.country)
+
+@app.post('/me/password')
+def update_password(payload: schemas.PasswordChange, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail='invalid_password')
+    crud.set_password(db, current_user, payload.new_password)
+    return {'ok': True}
+
+@app.get('/me/posts', response_model=list[schemas.PostOut])
+def my_posts(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return crud.get_posts_by_owner(db, current_user.id)
+
+@app.post('/me/profile-picture', response_model=schemas.UserOut)
+def upload_profile_picture(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    import uuid
+    key = f"profile-pictures/{uuid.uuid4().hex}-{file.filename}"
+    storage.upload_fileobj(key, file.file, content_type=file.content_type)
+    url = storage.public_url(key)
+    current_user.profile_picture = url
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@app.post('/users/{user_id}/follow')
+def follow_user(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail='cannot_follow_yourself')
+    target_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail='user_not_found')
+    existing = db.query(models.Follow).filter(models.Follow.follower_id == current_user.id, models.Follow.following_id == user_id).first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+        return {'following': False}
+    follow = models.Follow(follower_id=current_user.id, following_id=user_id)
+    db.add(follow)
+    db.commit()
+    return {'following': True}
+
+@app.get('/users/{user_id}/is-following')
+def is_following(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    existing = db.query(models.Follow).filter(models.Follow.follower_id == current_user.id, models.Follow.following_id == user_id).first()
+    return {'following': bool(existing)}
 
 @app.get('/posts', response_model=list[schemas.PostOut])
 def feed(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
@@ -284,6 +378,49 @@ def stream_media(key: str, range: str | None = Header(None)):
 def create_post(p: schemas.PostCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     post = crud.create_post(db, current_user.id, p.video_url, p.caption)
     return post
+
+@app.post('/me/posts/upload', response_model=schemas.PostOut)
+def upload_post(file: UploadFile = File(...), caption: str = Form(None), current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    import uuid
+    key = f"uploads/{uuid.uuid4().hex}-{file.filename}"
+    storage.upload_fileobj(key, file.file, content_type=file.content_type)
+    url = storage.public_url(key)
+    post = crud.create_post(db, current_user.id, url, caption)
+    post.processing_status = 'processing'
+    db.add(post)
+    db.commit()
+    from .processing import process_and_upload
+    import threading
+    db_url = os.getenv('DATABASE_URL')
+    t = threading.Thread(target=process_and_upload, args=(post.id, key, db_url, os.getenv('MINIO_ENDPOINT')))
+    t.daemon = True
+    t.start()
+    db.refresh(post)
+    return post
+
+@app.patch('/posts/{post_id}', response_model=schemas.PostOut)
+def update_post(post_id: int, payload: schemas.PostUpdate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    post = db.query(models.Post).filter(models.Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail='not_found')
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail='forbidden')
+    if payload.caption is not None:
+        post.caption = payload.caption
+    db.commit()
+    db.refresh(post)
+    return post
+
+@app.delete('/posts/{post_id}')
+def delete_post(post_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    post = db.query(models.Post).filter(models.Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail='not_found')
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail='forbidden')
+    db.delete(post)
+    db.commit()
+    return {'ok': True}
 
 @app.get('/upload/presign')
 def get_presign(filename: str):

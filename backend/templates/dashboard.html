@@ -38,13 +38,30 @@
                 <h2>–</h2>
                 <p>Posts</p>
             </div>
+            <div class="stat">
+                <h2>–</h2>
+                <p>Likes</p>
+            </div>
+            <div class="stat">
+                <h2>–</h2>
+                <p>Comments</p>
+            </div>
+            <div class="stat">
+                <h2>–</h2>
+                <p>Reposts</p>
+            </div>
+            <div class="stat">
+                <h2>–</h2>
+                <p>Follows</p>
+            </div>
         </div>
-        <div class="controls" style="display:flex;gap:10px;align-items:center">
+        <div class="controls" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <button id="loadUsers" class="btn">Show Users</button>
             <button id="loadPosts" class="btn">Show Posts</button>
             <button id="loadComments" class="btn">Comments</button>
             <button id="loadLikes" class="btn">Likes</button>
             <button id="loadReposts" class="btn">Reposts</button>
+            <button id="loadFollows" class="btn">Follows</button>
             <button id="loadMessages" class="btn">Messages</button>
             <input id="search" placeholder="Search users" style="margin-left:auto;padding:8px;border:1px solid #ddd;border-radius:6px" />
         </div>
@@ -74,7 +91,10 @@
         if (res.ok){
           const s = await res.json()
           document.querySelector('.stat:nth-child(1) h2').textContent = s.users
-          document.querySelector('.stat:nth-child(2) h2').textContent = s.posts
+          document.querySelector('.stat:nth-child(3) h2').textContent = s.likes
+          document.querySelector('.stat:nth-child(4) h2').textContent = s.comments
+          document.querySelector('.stat:nth-child(5) h2').textContent = s.reposts
+          document.querySelector('.stat:nth-child(6) h2').textContent = s.follows
         } else {
           if (res.status===401 || res.status===403) window.location.href = '/admin'
         }
@@ -83,8 +103,8 @@
         const res = await fetch('/api/admin/users', { headers: authHeader() })
         if (!res.ok) return
         const users = await res.json()
-        const table = ['<table><tr><th>ID</th><th>Username</th><th>Country</th></tr>']
-        users.forEach(u => table.push(`<tr><td>${u.id}</td><td>${u.username}</td><td>${u.country || 'N/A'}</td></tr>`))
+        const table = ['<table><tr><th>ID</th><th>Username</th><th>Email</th><th>Country</th><th>Profile Pic</th><th>Keywords</th><th>Created</th></tr>']
+        users.forEach(u => table.push(`<tr><td>${u.id}</td><td>${u.username}</td><td>${u.email || 'N/A'}</td><td>${u.country || 'N/A'}</td><td>${u.profile_picture ? '✓' : '–'}</td><td>${u.user_keywords || 'N/A'}</td><td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}</td></tr>`))
         table.push('</table>')
         document.getElementById('content').innerHTML = table.join('')
       }
@@ -92,19 +112,16 @@
         const res = await fetch('/api/admin/posts', { headers: authHeader() })
         if (!res.ok) return
         const posts = await res.json()
-        const table = ['<table><tr><th>ID</th><th>Owner</th><th>Video</th><th>Caption</th></tr>']
+        const table = ['<table><tr><th>ID</th><th>Owner</th><th>Video</th><th>Caption</th><th>Status</th><th>Description</th><th>Keywords</th><th>Created</th></tr>']
+        posts.forEach(p => table.push(`<tr><td>${p.id}</td><td>${p.owner || 'N/A'}</td><td><a href="${p.video_url}" target="_blank">View</a></td><td>${p.caption || 'N/A'}</td><td>${p.processing_status || 'N/A'}</td><td>${p.description || 'N/A'}</td><td>${p.keywords || 'N/A'}</td><td>${p.created_at ? new Date(p.created_at).toLocaleDateString() :
         posts.forEach(p => table.push(`<tr><td>${p.id}</td><td>${p.owner || 'N/A'}</td><td><a href="${p.video_url}" target="_blank">View</a></td><td>${p.caption || 'N/A'}</td></tr>`))
         table.push('</table>')
         document.getElementById('content').innerHTML = table.join('')
       }
       document.getElementById('loadUsers').addEventListener('click', loadUsers)
       document.getElementById('loadPosts').addEventListener('click', loadPosts)
-      document.getElementById('loadComments').addEventListener('click', async ()=>{
-        const res = await fetch('/api/admin/comments', { headers: authHeader() })
-        if (!res.ok) return
-        const items = await res.json()
-        const table = ['<table><tr><th>ID</th><th>User</th><th>Post</th><th>Text</th></tr>']
-        items.forEach(i => table.push(`<tr><td>${i.id}</td><td>${i.user_id}</td><td>${i.post_id}</td><td>${i.text}</td></tr>`))
+      document.getElementById('loadComments').addEventListener('click', asynContent</th><th>Created</th></tr>']
+        items.forEach(i => table.push(`<tr><td>${i.id}</td><td>${i.user_id}</td><td>${i.post_id}</td><td>${i.content}</td><td>${i.created_at ? new Date(i.created_at).toLocaleDateString() : 'N/A'}</td></tr>`))
         table.push('</table>')
         document.getElementById('content').innerHTML = table.join('')
       })
@@ -112,13 +129,26 @@
         const res = await fetch('/api/admin/likes', { headers: authHeader() })
         if (!res.ok) return
         const items = await res.json()
-        const table = ['<table><tr><th>ID</th><th>User</th><th>Post</th></tr>']
-        items.forEach(i => table.push(`<tr><td>${i.id}</td><td>${i.user_id}</td><td>${i.post_id}</td></tr>`))
+        const table = ['<table><tr><th>ID</th><th>User</th><th>Post</th><th>Created</th></tr>']
+        items.forEach(i => table.push(`<tr><td>${i.id}</td><td>${i.user_id}</td><td>${i.post_id}</td><td>${i.created_at ? new Date(i.created_at).toLocaleDateString() : 'N/A'}</td></tr>`))
         table.push('</table>')
         document.getElementById('content').innerHTML = table.join('')
       })
       document.getElementById('loadReposts').addEventListener('click', async ()=>{
         const res = await fetch('/api/admin/reposts', { headers: authHeader() })
+        if (!res.ok) return
+        const items = await res.json()
+        const table = ['<table><tr><th>ID</th><th>User</th><th>Post</th><th>Created</th></tr>']
+        items.forEach(i => table.push(`<tr><td>${i.id}</td><td>${i.user_id}</td><td>${i.post_id}</td><td>${i.created_at ? new Date(i.created_at).toLocaleDateString() : 'N/A'}</td></tr>`))
+        table.push('</table>')
+        document.getElementById('content').innerHTML = table.join('')
+      })
+      document.getElementById('loadFollows').addEventListener('click', async ()=>{
+        const res = await fetch('/api/admin/follows', { headers: authHeader() })
+        if (!res.ok) return
+        const items = await res.json()
+        const table = ['<table><tr><th>ID</th><th>Follower</th><th>Following</th><th>Created</th></tr>']
+        items.forEach(i => table.push(`<tr><td>${i.id}</td><td>${i.follower_id}</td><td>${i.following_id}</td><td>${i.created_at ? new Date(i.created_at).toLocaleDateString() : 'N/A'
         if (!res.ok) return
         const items = await res.json()
         const table = ['<table><tr><th>ID</th><th>User</th><th>Post</th></tr>']

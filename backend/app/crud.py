@@ -5,9 +5,24 @@ from .auth import get_password_hash
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
 
-def create_user(db: Session, username: str, password: str, country: str = None):
-    user = models.User(username=username, password_hash=get_password_hash(password), country=country)
+def create_user(db: Session, username: str, password: str, country: str = None, email: str = None):
+    user = models.User(username=username, email=email, password_hash=get_password_hash(password), country=country)
     db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+def update_user(db: Session, user: models.User, username: str = None, country: str = None):
+    if username:
+        user.username = username
+    if country is not None:
+        user.country = country
+    db.commit()
+    db.refresh(user)
+    return user
+
+def set_password(db: Session, user: models.User, new_password: str):
+    user.password_hash = get_password_hash(new_password)
     db.commit()
     db.refresh(user)
     return user
@@ -21,6 +36,9 @@ def create_post(db: Session, owner_id: int, video_url: str, caption: str = None)
 
 def get_posts(db: Session, skip: int = 0, limit: int = 20):
     return db.query(models.Post).order_by(models.Post.created_at.desc()).offset(skip).limit(limit).all()
+
+def get_posts_by_owner(db: Session, owner_id: int, limit: int = 200):
+    return db.query(models.Post).filter(models.Post.owner_id == owner_id).order_by(models.Post.created_at.desc()).limit(limit).all()
 
 def toggle_like(db: Session, user_id: int, post_id: int):
     existing = db.query(models.Like).filter(models.Like.user_id==user_id, models.Like.post_id==post_id).first()
